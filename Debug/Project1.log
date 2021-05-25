@@ -1,0 +1,7 @@
+﻿  holiday.c
+E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Project1\holiday.c(19,17): warning C4013: 'getSolarDate'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Project1\holiday.c(19,34): warning C4013: 'getTotalDayLunar'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Project1\holiday.c(58,18): warning C4013: 'bubble_sort_modi'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Project1\holiday.c(61,19): warning C4013: 'SumOfDays'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Project1\holiday.c(62,20): warning C4013: 'DayOfWeek'이(가) 정의되지 않았습니다. extern은 int형을 반환하는 것으로 간주합니다.
+  Project1.vcxproj -> E:\대학\4학년 1학기(21)\IoT프로그래밍\project\Project1\Debug\Project1.exe
