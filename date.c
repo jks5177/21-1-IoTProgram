@@ -13,6 +13,7 @@
 #define fnd_d "/dev/fnd"
 #define dot "/dev/dot"
 #define led "/dev/led"
+#define clcd "/dev/clcd"
 
 
 //음력 to 양력
@@ -132,6 +133,10 @@ void lun2sol(int yearHoliday[30][2], int year) {
                 //전날
                 yearHoliday[j][0] = result[1];
                 yearHoliday[j][1] = result[2] - 1;
+                if (yearHoliday[j][1] <= 0) {
+                    yearHoliday[j][0] -= 1;
+                    yearHoliday[j][1] = solarDayNum[yearHoliday[j][0]-1] + yearHoliday[j][1]; 
+                }
 
                 //당일
                 yearHoliday[++j][0] = result[1];
@@ -140,6 +145,10 @@ void lun2sol(int yearHoliday[30][2], int year) {
                 //담날
                 yearHoliday[++j][0] = result[1];
                 yearHoliday[j][1] = result[2] + 1;
+                if (yearHoliday[j][1] >= solarDayNum[yearHoliday[j][0]-1]) {
+                    yearHoliday[j][1] = yearHoliday[j][1] - solarDayNum[yearHoliday[j][0] - 1];
+                    yearHoliday[j][0] += 1;
+                }
             }
             else { //부처님 오시는 날
                 getSolarDate(getTotalDayLunar(year, holiday[i].month, holiday[i].day), result);
@@ -268,7 +277,7 @@ int tact2fnd() {
 		printf("tact : open failed!\n");
 	}
 	while (1) {
-		if (i > 3) return; //4자리수가 다 입력되면 종료
+        if (i > 3) { close(fnd); close(tact); return; } //4자리수가 다 입력되면 종료
 		while (1) {
 			read(tact, &c, sizeof(c)); //tact 스위치에서 하나 읽기
 			usleep(100000);
@@ -292,8 +301,9 @@ int tact2fnd() {
 		write(fnd, &fnd_data, sizeof(fnd_data));
 		usleep(100000);
 	}
-	usleep(100000);
-	close(tact);
+	//usleep(100000);
+    /*close(fnd);
+	close(tact);*/
 	return 0;
 }
 
@@ -308,13 +318,53 @@ void set_date(int position, char *month, char *day) {
     date[3] = yearHoliday[position][1] % 10;
 }
 
+void check_holiday(int wDay, int position, int *week) {
+    int week_date[7][2];
+    int i, j;
+    for (i = 0; i < 7; i++) {
+        week_date[i][0] = yearHoliday[position][0];
+        week_date[i][1] = yearHoliday[position][1]-(wDay-i);
+    }
+    for (i = 0; i < sizeof(week_date) / sizeof(week_date[0]); i++) {
+        for (j = 0; j < sizeof(yearHoliday) / sizeof(yearHoliday[0]); j++) {
+            if (week_date[i][0] == yearHoliday[j][0] && week_date[i][1] == yearHoliday[j][1]) {
+                week[i] = 1;
+            }
+        }
+    }
+    week[0] = 1;
+    week[6] = 1;
+}
 
+int change10To16(int* week) {
+    int value = 2, result = 0;
+    int i;
+    for (i = 0; i < 7; i++) {
+        if (week[i] == 1)
+        {
+            result += value;
+        }
+        value *= 2;
+    }
+    return 255 - result;
+}
+
+void clcd_input(char clcd_text[]) {
+    int clcd_d;
+
+    clcd_d = open(clcd, O_RDWR);
+    if (clcd_d < 0) { printf("clcd error\n"); }// 예외처리
+
+    write(clcd_d, clcd_text, strlen(clcd_text)); // 두번째부터 각각 문자열, 문자열 크기
+    close(clcd_d);
+}
 
 
 int main() {
     /*add holiday*/
     printf("If you want to add holiday?\n");
     printf("Yes : write holiday / No : click TactSwitch 12\n");
+    clcd_input("Add Holiday");
     tact2fnd();
     int monthToholi, dayToholi, i;
     monthToholi = date[0] * 10 + date[1];
@@ -323,8 +373,8 @@ int main() {
     /*add holiday*/
 
     /*Input year by Tact Switch*/
+    clcd_input("Input Year");
     int year;
-    printf("Input your want to check holiday year\n");
     tact2fnd();
     year = date[0] * 1000 + date[1] * 100 + date[2] * 10 + date[3];
     /*Input year by Tact Switch*/
@@ -332,19 +382,20 @@ int main() {
     /*Ouput holiday - FND(month, day), LCD(holiday name), DotMatric(weekday), LED(light on holiday)*/
 
     /*sorting holiday*/
+    clcd_input("Holiday");
     lun2sol(yearHoliday, year);
     bubble_sort_modi(yearHoliday, sizeof(yearHoliday) / sizeof(yearHoliday[0]));
     /*sorting holiday*/
 
     char charDay[7][3] = { "일", "월", "화", "수", "목", "금", "토" }; // 3 * 문자의 수  = 21 이므로 [7][3] 선언함
-    int sum, wDay;
+    /*int sum, wDay;
     for (i = 0; i < sizeof(yearHoliday) / sizeof(yearHoliday[0]); i++) {
         if (yearHoliday[i][0] != 0) {
             sum = SumOfDays(year, yearHoliday[i][0], yearHoliday[i][1]);
             wDay = DayOfWeek(sum);
             printf("%d년 휴일 : %d 월 %d 일 %s요일\n", year, yearHoliday[i][0], yearHoliday[i][1], charDay[wDay]);
         }
-    }
+    }*/
 
     /*start holiday*/
     int startposition = 0;
@@ -360,16 +411,22 @@ int main() {
 
     int nowposition = startposition; //array yearHoliday position
 
-    //int sum, wDay;
+    int sum, wDay;
 
     //char charDay[7][3] = { "일", "월", "화", "수", "목", "금", "토" }; // 3 * 문자의 수  = 21 이므로 [7][3] 선언함
 
     sum = SumOfDays(year, yearHoliday[nowposition][0], yearHoliday[nowposition][1]);
     wDay = DayOfWeek(sum);
 
+    int week[7] = { 0, };
+    int week_holi;
+    check_holiday(wDay, nowposition, week);
+    week_holi = change10To16(week);
+
     int tact, fnd, dot_d, dev;
     unsigned char fnd_data[4];
     unsigned char c;
+    unsigned char data;
 
     unsigned char alpha[7][8] =
     {
@@ -377,14 +434,12 @@ int main() {
         {0xd8, 0xa8, 0x88, 0x88, 0x00, 0x07, 0x05, 0x07}, //월
         {0xf8, 0x20, 0x20, 0x20, 0x09, 0x09, 0x09, 0x15}, //화
         {0x88, 0x88, 0xa8, 0xdf, 0x05, 0x07, 0x04, 0x07}, //수
-        {0xf8, 0x20, 0x20, 0x20, 0x08, 0x14, 0x10, 0x10}, //목
+        {0xf8, 0x20, 0x20, 0x20, 0x08, 0x0e, 0x0a, 0x0a}, //목
         {0xf0, 0x80, 0xf0, 0x80, 0x80, 0x07, 0x04, 0x04}, //금
         {0xf0, 0x80, 0xf0, 0x17, 0xf1, 0x07, 0x05, 0x07} //토
     };
 
-    fnd = open(fnd_d, O_RDWR); //fnd 열기
     tact = open(tact_d, O_RDWR); //tactsw 열기
-    
     
     while (1)
     {
@@ -399,32 +454,29 @@ int main() {
             PrintFnd(date[i], i, fnd_data);
         }
         write(fnd, &fnd_data, sizeof(fnd_data));
-        sleep(1);
+        usleep(1000000);
         close(fnd);
         /*FND*/
 
         /*DOT*/
         dot_d = open(dot, O_RDWR); // dotmatrix 열기
         write(dot_d, &alpha[wDay], sizeof(alpha[wDay]));
-        sleep(1);
+        usleep(1000000);
         close(dot_d);
         /*DOT*/
 
         /*LED*/
         dev = open(led, O_RDWR); //led 열기
-        wDay
-
-
+        data = week_holi;
+        write(dev, &data, sizeof(unsigned char));
+        usleep(1000000);
+        close(dev);
         /*LED*/
-
-        /*LCD*/
-
-        /*LCD*/
         /*output devices*/
 
         while (1) {
             read(tact, &c, sizeof(c)); //tact 스위치에서 하나 읽기
-            usleep(100000);
+            usleep(10000);
             if (c) break;
         }
 
@@ -437,6 +489,9 @@ int main() {
             set_date(nowposition, monthToDate, dayToDate);
             sum = SumOfDays(year, yearHoliday[nowposition][0], yearHoliday[nowposition][1]);
             wDay = DayOfWeek(sum);
+            int week[7] = { 0, };
+            check_holiday(wDay, nowposition, week);
+            week_holi = change10To16(week);
             break; 
         }
         case 12: {
@@ -446,6 +501,9 @@ int main() {
             printf("%d 월 %d 일\n", yearHoliday[nowposition][0], yearHoliday[nowposition][1]);
             sum = SumOfDays(year, yearHoliday[nowposition][0], yearHoliday[nowposition][1]);
             wDay = DayOfWeek(sum);
+            int week[7] = { 0, };
+            check_holiday(wDay, nowposition, week);
+            week_holi = change10To16(week);
             break;
         }
         }
